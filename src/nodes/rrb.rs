@@ -501,7 +501,7 @@ impl<A: Clone> Node<A> {
         match side {
             Left => children.push_front(child),
             Right => children.push_back(child),
-        }
+        };
     }
 
     fn pop_child_node(&mut self, side: Side) -> Ref<Node<A>> {

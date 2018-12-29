@@ -683,9 +683,51 @@ impl<A: Clone> Vector<A> {
     /// Panics if the index is out of bounds.
     ///
     /// Time: O(log n)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate im;
+    /// # use im::Vector;
+    /// # fn main() {
+    /// let mut vec = vector![1, 2, 3];
+    /// let old = vec.set(1, 5);
+    ///
+    /// assert_eq!(old, 2);
+    /// assert_eq!(vector![1, 5, 3], vec);
+    /// # }
     #[inline]
     pub fn set(&mut self, index: usize, value: A) -> A {
         replace(&mut self[index], value)
+    }
+
+    /// Update the value at index `index` in a vector.
+    ///
+    /// Returns the previous value at the index and a mutable borrow of the new value at the index.
+    ///
+    /// Panics if the index is out of bounds.
+    ///
+    /// Time: O(log n)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate im;
+    /// # use im::Vector;
+    /// # fn main() {
+    /// let mut vec = vector![1, 2, 3];
+    /// {
+    ///     let (old, new_ref) = vec.set_mut(1, 5);
+    ///     *new_ref *= 3;
+    ///
+    ///     assert_eq!(old, 2);
+    /// }
+    /// assert_eq!(vector![1, 15, 3], vec);
+    /// # }
+    #[inline]
+    pub fn set_mut(&mut self, index: usize, value: A) -> (A, &mut A) {
+        let current = &mut self[index];
+        (replace(current, value), current)
     }
 
     /// Swap the elements at indices `i` and `j`.
@@ -711,11 +753,30 @@ impl<A: Clone> Vector<A> {
     /// # }
     /// ```
     pub fn push_front(&mut self, value: A) {
+        self.push_front_mut(value);
+    }
+
+    /// Push a value to the front of a vector.
+    ///
+    /// Time: O(1)*
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate im;
+    /// # use im::Vector;
+    /// # fn main() {
+    /// let mut vec = vector![5, 6, 7];
+    /// *vec.push_front_mut(4) *= 2;
+    /// assert_eq!(vector![8, 5, 6, 7], vec);
+    /// # }
+    /// ```
+    pub fn push_front_mut(&mut self, value: A) -> &mut A {
         if self.needs_promotion() {
             self.promote_back();
         }
         match self {
-            Single(chunk) => Ref::make_mut(chunk).push_front(value),
+            Single(chunk) => Ref::make_mut(chunk).push_front_mut(value),
             Full(tree) => tree.push_front(value),
         }
     }
@@ -736,11 +797,30 @@ impl<A: Clone> Vector<A> {
     /// # }
     /// ```
     pub fn push_back(&mut self, value: A) {
+        self.push_back_mut(value);
+    }
+
+    /// Push a value to the back of a vector.
+    ///
+    /// Time: O(1)*
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate im;
+    /// # use im::Vector;
+    /// # fn main() {
+    /// let mut vec = vector![1, 2, 3];
+    /// *vec.push_back_mut(4) *= 2;
+    /// assert_eq!(vector![1, 2, 3, 8], vec);
+    /// # }
+    /// ```
+    pub fn push_back_mut(&mut self, value: A) -> &mut A {
         if self.needs_promotion() {
             self.promote_front();
         }
         match self {
-            Single(chunk) => Ref::make_mut(chunk).push_back(value),
+            Single(chunk) => Ref::make_mut(chunk).push_back_mut(value),
             Full(tree) => tree.push_back(value),
         }
     }
@@ -1486,7 +1566,7 @@ impl<A: Clone> RRB<A> {
         Some(outer_b.pop_back())
     }
 
-    fn push_front(&mut self, value: A) {
+    fn push_front(&mut self, value: A) -> &mut A {
         if self.outer_f.is_full() {
             swap(&mut self.outer_f, &mut self.inner_f);
             if !self.outer_f.is_empty() {
@@ -1497,10 +1577,10 @@ impl<A: Clone> RRB<A> {
         }
         self.length = self.length.checked_add(1).expect("Vector length overflow");
         let outer_f = Ref::make_mut(&mut self.outer_f);
-        outer_f.push_front(value)
+        outer_f.push_front_mut(value)
     }
 
-    fn push_back(&mut self, value: A) {
+    fn push_back(&mut self, value: A) -> &mut A {
         if self.outer_b.is_full() {
             swap(&mut self.outer_b, &mut self.inner_b);
             if !self.outer_b.is_empty() {
@@ -1511,7 +1591,7 @@ impl<A: Clone> RRB<A> {
         }
         self.length = self.length.checked_add(1).expect("Vector length overflow");
         let outer_b = Ref::make_mut(&mut self.outer_b);
-        outer_b.push_back(value)
+        outer_b.push_back_mut(value)
     }
 
     fn push_middle(&mut self, side: Side, chunk: Ref<Chunk<A>>) {

@@ -109,7 +109,9 @@ where
         out.left = self.left;
         out.right = self.right;
         for index in self.left..self.right {
-            unsafe { Chunk::force_write(index, self.values()[index].clone(), &mut out) }
+            unsafe {
+                Chunk::force_write(index, self.values()[index].clone(), &mut out);
+            }
         }
         out
     }
@@ -259,8 +261,10 @@ where
 
     /// Write a value at an index without trying to drop what's already there
     #[inline]
-    unsafe fn force_write(index: usize, value: A, chunk: &mut Self) {
-        ptr::write(&mut chunk.values_mut()[index], value)
+    unsafe fn force_write(index: usize, value: A, chunk: &mut Self) -> &mut A {
+        let location = &mut chunk.values_mut()[index];
+        ptr::write(location, value);
+        location
     }
 
     /// Drop the value at an index
@@ -297,6 +301,15 @@ where
     ///
     /// Time: O(1) if there's room at the front, O(n) otherwise
     pub fn push_front(&mut self, value: A) {
+        self.push_front_mut(value);
+    }
+
+    /// Push an item to the front of the chunk.
+    ///
+    /// Panics if the capacity of the chunk is exceeded.
+    ///
+    /// Time: O(1) if there's room at the front, O(n) otherwise
+    pub fn push_front_mut(&mut self, value: A) -> &mut A {
         if self.is_full() {
             panic!("Chunk::push_front: can't push to full chunk");
         }
@@ -318,6 +331,15 @@ where
     ///
     /// Time: O(1) if there's room at the back, O(n) otherwise
     pub fn push_back(&mut self, value: A) {
+        self.push_back_mut(value);
+    }
+
+    /// Push an item to the back of the chunk.
+    ///
+    /// Panics if the capacity of the chunk is exceeded.
+    ///
+    /// Time: O(1) if there's room at the back, O(n) otherwise
+    pub fn push_back_mut(&mut self, value: A) -> &mut A {
         if self.is_full() {
             panic!("Chunk::push_back: can't push to full chunk");
         }
@@ -329,8 +351,9 @@ where
             self.right = N::USIZE - self.left;
             self.left = 0;
         }
-        unsafe { Chunk::force_write(self.right, value, self) }
+        let current_right = self.right;
         self.right += 1;
+        unsafe { Chunk::force_write(current_right, value, self) }
     }
 
     /// Pop an item off the front of the chunk.
@@ -1125,10 +1148,10 @@ mod test {
         {
             let mut chunk: Chunk<DropTest> = Chunk::new();
             for _i in 0..20 {
-                chunk.push_back(DropTest::new(&counter))
+                chunk.push_back(DropTest::new(&counter));
             }
             for _i in 0..20 {
-                chunk.push_front(DropTest::new(&counter))
+                chunk.push_front(DropTest::new(&counter));
             }
             assert_eq!(40, counter.load(Ordering::Relaxed));
             for _i in 0..10 {
